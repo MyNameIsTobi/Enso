@@ -127,7 +127,8 @@
     padding: 4px 8px; height: 24px; font-size: 11px;
     font-weight: bold; background: var(--bg2, #1e1e2e);
   }
-  .row { display: grid; grid-template-columns: 1fr 1fr 5ch; align-items: center; height: 22px; padding: 0 8px; gap: 4px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 5ch; align-items: center; height: 22px; padding: 0 8px; gap: 6px; font-size: 11px; white-space: nowrap; }
+  .row > * { min-width: 0; overflow: hidden; }
   .item:hover { background: var(--bg3); }
   .indent { padding-left: 1ch; }
   .col-path { font-size: 11px; }

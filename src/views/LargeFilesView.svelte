@@ -77,8 +77,8 @@
   .header { display: flex; align-items: center; gap: 6px; padding: 3px 8px; height: 26px; font-size: 11px; flex-shrink: 0; }
   .spacer { flex: 1; }
   .list { flex: 1; overflow-y: auto; }
-  .row { display: grid; grid-template-columns: 1fr 9ch 8ch 7ch; align-items: center; height: 22px; padding: 0 8px; gap: 4px; }
-  .hdr { font-size: 11px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) 9ch 8ch 7ch; align-items: center; height: 22px; padding: 0 8px; gap: 6px; font-size: 11px; white-space: nowrap; }
+  .row > * { min-width: 0; overflow: hidden; }
   .item:hover { background: var(--bg3); }
   .col-size { text-align: right; }
   .empty { padding: 12px; text-align: center; font-size: 11px; }

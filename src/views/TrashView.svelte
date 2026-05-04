@@ -168,18 +168,20 @@
 
   .item-row {
     display: grid;
-    grid-template-columns: 1fr 8ch 6ch 3ch;
+    grid-template-columns: minmax(0, 1fr) 8ch 6ch 3ch;
     align-items: center;
     height: 22px;
     padding: 0 8px;
-    gap: 4px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 11px;
+    white-space: nowrap;
   }
 
+  .item-row > * { min-width: 0; overflow: hidden; }
   .item-row:hover { background: var(--bg3); }
 
-  .size { text-align: right; font-size: 11px; }
-  .age { text-align: right; font-size: 11px; }
+  .size { text-align: right; }
+  .age  { text-align: right; }
 
   .row-btn {
     font-size: 11px;

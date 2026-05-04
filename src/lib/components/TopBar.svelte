@@ -66,7 +66,9 @@
   <span class="spacer"></span>
 
   {#if scanState() === "scanning"}
-    <span class="dim">scanning… {scanProgress()?.path.split("/").pop() ?? ""}</span>
+    <span class="dim scan-status" title={scanProgress()?.path ?? ""}>
+      scanning… {scanProgress()?.path.split("/").pop() ?? ""}
+    </span>
   {:else if scanState() === "complete" || scanState() === "idle"}
     <AsciiProgress
       ratio={progressRatio}
@@ -75,10 +77,9 @@
       width={12}
       tooltip="Scanned file size / disk capacity&#10;&#10;The left number is the sum of all logical file sizes found by the scan.&#10;The right number is the total disk capacity.&#10;&#10;Your filesystem (Btrfs zstd) compresses data on disk, so the&#10;actual space used on the drive is lower than the logical file sizes."
     />
-  {/if}
-
-  {#if progressLabel}
-    <span class="dim status"> · {progressLabel}</span>
+    {#if progressLabel}
+      <span class="dim status"> · {progressLabel}</span>
+    {/if}
   {/if}
 
   <div class="window-controls">
@@ -108,7 +109,15 @@
     flex-shrink: 1;
   }
   .spacer { flex: 1; }
-  .status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch; }
+  .status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch; min-width: 0; }
+  .scan-status {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex-shrink: 1;
+    max-width: 50ch;
+  }
   .window-controls {
     display: flex;
     gap: 2px;

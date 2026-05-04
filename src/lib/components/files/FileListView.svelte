@@ -119,15 +119,14 @@
 
   .row {
     display: grid;
-    grid-template-columns: 1fr 9ch 8ch 7ch 5ch;
+    grid-template-columns: minmax(0, 1fr) 9ch 8ch 7ch 5ch;
     align-items: center;
     height: 22px;
     padding: 0 8px;
-    gap: 4px;
+    gap: 6px;
+    font-size: 11px;
     white-space: nowrap;
   }
-
-  .header { font-size: 11px; }
 
   .file-row {
     cursor: default;
@@ -137,7 +136,8 @@
   .file-row.selected   { background: var(--sel); }
   .file-row.staged     { color: var(--green); }
 
-  .col-name    { overflow: hidden; text-overflow: ellipsis; }
+  .col-name, .col-size, .col-age, .col-type { min-width: 0; overflow: hidden; }
+  .col-name    { text-overflow: ellipsis; }
   .col-size    { text-align: right; }
   .col-actions { display: flex; gap: 2px; visibility: hidden; }
   .file-row:hover .col-actions { visibility: visible; }

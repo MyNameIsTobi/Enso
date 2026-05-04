@@ -136,13 +136,12 @@
   .types-view { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
   .header { padding: 6px 8px; font-size: 11px; flex-shrink: 0; }
   .stats-list { padding: 8px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
-  .stat-row { display: grid; grid-template-columns: 13ch 32ch 9ch 8ch; align-items: center; height: 22px; gap: 4px; }
+  .stat-row { display: grid; grid-template-columns: 13ch 32ch 9ch 8ch; align-items: center; height: 22px; gap: 6px; font-size: 11px; white-space: nowrap; }
+  .stat-row > * { min-width: 0; overflow: hidden; }
   .games-row { cursor: default; border-radius: 2px; }
   .games-row:hover { background: var(--bg3); }
-  .label { font-size: 12px; }
-  .bar { font-size: 11px; letter-spacing: -1px; }
-  .bytes { text-align: right; font-size: 11px; }
-  .count { font-size: 11px; }
+  .bar { letter-spacing: -1px; }
+  .bytes { text-align: right; }
   .empty { padding: 12px; text-align: center; font-size: 11px; }
 
   .game-tip {

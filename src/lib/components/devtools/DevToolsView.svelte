@@ -106,18 +106,21 @@
 
   .row {
     display: grid;
-    grid-template-columns: 12ch 1fr 9ch 10ch 5ch;
+    grid-template-columns: 12ch minmax(0, 1fr) 9ch 10ch 5ch;
     align-items: center;
     height: 22px;
     padding: 0 8px;
-    gap: 4px;
+    gap: 6px;
+    font-size: 11px;
+    white-space: nowrap;
   }
 
-  .header { font-size: 11px; }
+  .header { font-weight: normal; }
 
   .artifact-list { flex: 1; overflow-y: auto; }
   .artifact-row:hover { background: var(--bg3); }
 
+  .col-kind, .col-name, .col-size, .col-age { min-width: 0; overflow: hidden; }
   .col-size { text-align: right; }
   .col-actions { display: flex; gap: 2px; visibility: hidden; }
   .artifact-row:hover .col-actions { visibility: visible; }
