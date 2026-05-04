@@ -1,0 +1,168 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --fg:      #d4d4d4;
+  --dim:     #6b7280;
+  --red:     #e06c75;
+  --green:   #98c379;
+  --yellow:  #e5c07b;
+  --blue:    #4a9eff;
+  --purple:  #c678dd;
+  --bg:      #1a1a1a;
+  --bg2:     #222222;
+  --bg3:     #2a2a2a;
+  --border:  #3a3a3a;
+  --sel:     #2d3748;
+  --font:    'ui-monospace', 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  --fs:      13px;
+  --lh:      1.5;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--fs);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Buttons: [text] style */
+button, .btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--fs);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: var(--lh);
+  user-select: none;
+}
+
+button:focus-visible, .btn:focus-visible {
+  outline: 1px solid var(--fg);
+  outline-offset: 1px;
+}
+
+button:active, .btn:active {
+  background: var(--border);
+}
+
+/* Styled button wrapper — renders as [text] */
+.ascii-btn {
+  color: var(--fg);
+  cursor: pointer;
+  user-select: none;
+  font-family: var(--font);
+  font-size: var(--fs);
+  background: transparent;
+  border: none;
+  padding: 0;
+  line-height: var(--lh);
+}
+
+.ascii-btn::before { content: '['; }
+.ascii-btn::after  { content: ']'; }
+
+.ascii-btn:hover, .ascii-btn:focus-visible {
+  background: var(--sel);
+  outline: none;
+}
+
+.ascii-btn:focus-visible {
+  outline: 1px solid var(--fg);
+}
+
+.ascii-btn.active {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.ascii-btn.danger {
+  color: var(--red);
+}
+
+.ascii-btn.safe {
+  color: var(--green);
+}
+
+/* Scrollbars — minimal */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); }
+::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+/* Text utilities */
+.dim   { color: var(--dim); }
+.red   { color: var(--red); }
+.green { color: var(--green); }
+.yellow{ color: var(--yellow); }
+.blue  { color: var(--blue); }
+
+/* Borders using box-drawing chars — actual CSS borders for layout */
+.border-bottom { border-bottom: 1px solid var(--border); }
+.border-top    { border-top:    1px solid var(--border); }
+.border-left   { border-left:   1px solid var(--border); }
+.border-right  { border-right:  1px solid var(--border); }
+
+/* Truncate */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Input fields */
+input[type="text"], input[type="search"], input[type="number"] {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--fs);
+  outline: none;
+  padding: 1px 4px;
+  width: 100%;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus {
+  border-bottom-color: var(--fg);
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Number alignment */
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* D3 visualization colors */
+.cat-images      { fill: #4a9eff; }
+.cat-videos      { fill: #e06c75; }
+.cat-documents   { fill: #98c379; }
+.cat-development { fill: #e5c07b; }
+.cat-archives    { fill: #c678dd; }
+.cat-other       { fill: #5c6370; }
