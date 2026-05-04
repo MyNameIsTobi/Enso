@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::delete::{DeleteResult, FailedItem};
 
@@ -12,29 +12,40 @@ pub struct TrashEntry {
     pub is_dir: bool,
 }
 
-fn trash_dirs() -> anyhow::Result<(PathBuf, PathBuf)> {
-    let home = std::env::var("HOME")
-        .unwrap_or_else(|_| "/tmp".to_string());
+// ────────────────────────────────────────────────────────────────────────────
+// Platform-specific trash dir resolution
+// ────────────────────────────────────────────────────────────────────────────
+
+#[cfg(target_os = "linux")]
+fn linux_trash_dirs() -> (PathBuf, PathBuf) {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
     let trash = PathBuf::from(home).join(".local/share/Trash");
-    Ok((trash.join("files"), trash.join("info")))
+    (trash.join("files"), trash.join("info"))
 }
 
-fn parse_trashinfo(content: &str) -> Option<(String, String)> {
-    let mut path = None;
-    let mut date = None;
-    for line in content.lines() {
-        if let Some(p) = line.strip_prefix("Path=") {
-            path = Some(p.to_string());
-        } else if let Some(d) = line.strip_prefix("DeletionDate=") {
-            date = Some(d.to_string());
-        }
-    }
-    Some((path?, date.unwrap_or_default()))
+#[cfg(target_os = "macos")]
+fn macos_trash_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    PathBuf::from(home).join(".Trash")
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// list_trash
+// ────────────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
 pub async fn list_trash() -> Result<Vec<TrashEntry>, String> {
-    let (files_dir, info_dir) = trash_dirs().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    { list_trash_linux() }
+    #[cfg(target_os = "macos")]
+    { list_trash_macos() }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    { Ok(Vec::new()) }
+}
+
+#[cfg(target_os = "linux")]
+fn list_trash_linux() -> Result<Vec<TrashEntry>, String> {
+    let (files_dir, info_dir) = linux_trash_dirs();
     let mut entries = Vec::new();
 
     let info_entries = match std::fs::read_dir(&info_dir) {
@@ -74,12 +85,66 @@ pub async fn list_trash() -> Result<Vec<TrashEntry>, String> {
         });
     }
 
-    // Sort by deletion_date descending (most recent first)
     entries.sort_by(|a, b| b.deletion_date.cmp(&a.deletion_date));
     Ok(entries)
 }
 
-fn dir_size(path: &std::path::Path) -> u64 {
+#[cfg(target_os = "linux")]
+fn parse_trashinfo(content: &str) -> Option<(String, String)> {
+    let mut path = None;
+    let mut date = None;
+    for line in content.lines() {
+        if let Some(p) = line.strip_prefix("Path=") {
+            path = Some(p.to_string());
+        } else if let Some(d) = line.strip_prefix("DeletionDate=") {
+            date = Some(d.to_string());
+        }
+    }
+    Some((path?, date.unwrap_or_default()))
+}
+
+#[cfg(target_os = "macos")]
+fn list_trash_macos() -> Result<Vec<TrashEntry>, String> {
+    let trash = macos_trash_dir();
+    let mut entries = Vec::new();
+
+    let rd = match std::fs::read_dir(&trash) {
+        Ok(rd) => rd,
+        Err(_) => return Ok(entries),
+    };
+
+    for e in rd.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') { continue; } // .DS_Store etc.
+
+        let path = e.path();
+        let meta = match e.metadata() { Ok(m) => m, Err(_) => continue };
+        let is_dir = meta.is_dir();
+        let size = if is_dir { dir_size(&path) } else { meta.len() };
+        let deletion_date = ctime_iso(&meta).unwrap_or_default();
+
+        entries.push(TrashEntry {
+            name,
+            original_path: String::new(), // macOS keeps origin in Finder-internal plist
+            deletion_date,
+            size,
+            is_dir,
+        });
+    }
+
+    entries.sort_by(|a, b| b.deletion_date.cmp(&a.deletion_date));
+    Ok(entries)
+}
+
+#[cfg(target_os = "macos")]
+fn ctime_iso(meta: &std::fs::Metadata) -> Option<String> {
+    use std::os::unix::fs::MetadataExt;
+    use chrono::{Local, TimeZone};
+    let dt = Local.timestamp_opt(meta.ctime(), 0).single()?;
+    Some(dt.format("%Y-%m-%dT%H:%M:%S").to_string())
+}
+
+fn dir_size(path: &Path) -> u64 {
     let mut total = 0u64;
     if let Ok(rd) = std::fs::read_dir(path) {
         for entry in rd.flatten() {
@@ -97,14 +162,27 @@ fn dir_size(path: &std::path::Path) -> u64 {
     total
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// empty_trash
+// ────────────────────────────────────────────────────────────────────────────
+
 #[tauri::command]
 pub async fn empty_trash(names: Vec<String>) -> Result<DeleteResult, String> {
-    let (files_dir, info_dir) = trash_dirs().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    { empty_trash_linux(names) }
+    #[cfg(target_os = "macos")]
+    { empty_trash_macos(names) }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    { Ok(DeleteResult { deleted: vec![], failed: vec![] }) }
+}
+
+#[cfg(target_os = "linux")]
+fn empty_trash_linux(names: Vec<String>) -> Result<DeleteResult, String> {
+    let (files_dir, info_dir) = linux_trash_dirs();
     let mut deleted = Vec::new();
     let mut failed = Vec::new();
 
     let targets: Vec<String> = if names.is_empty() {
-        // Empty everything
         match std::fs::read_dir(&info_dir) {
             Ok(rd) => rd.flatten()
                 .filter_map(|e| {
@@ -134,15 +212,11 @@ pub async fn empty_trash(names: Vec<String>) -> Result<DeleteResult, String> {
                 deleted.push(name.clone());
             }
             Err(e) => {
-                // Try removing info anyway if file is already gone
                 if !file_path.exists() {
                     let _ = std::fs::remove_file(&info_path);
                     deleted.push(name.clone());
                 } else {
-                    failed.push(FailedItem {
-                        path: name.clone(),
-                        error: e.to_string(),
-                    });
+                    failed.push(FailedItem { path: name.clone(), error: e.to_string() });
                 }
             }
         }
@@ -151,9 +225,59 @@ pub async fn empty_trash(names: Vec<String>) -> Result<DeleteResult, String> {
     Ok(DeleteResult { deleted, failed })
 }
 
+#[cfg(target_os = "macos")]
+fn empty_trash_macos(names: Vec<String>) -> Result<DeleteResult, String> {
+    let trash = macos_trash_dir();
+    let mut deleted = Vec::new();
+    let mut failed = Vec::new();
+
+    let targets: Vec<String> = if names.is_empty() {
+        match std::fs::read_dir(&trash) {
+            Ok(rd) => rd.flatten()
+                .filter_map(|e| {
+                    let n = e.file_name().to_string_lossy().into_owned();
+                    if n.starts_with('.') { None } else { Some(n) }
+                })
+                .collect(),
+            Err(e) => return Err(e.to_string()),
+        }
+    } else {
+        names
+    };
+
+    for name in &targets {
+        let path = trash.join(name);
+        let result = if path.is_dir() {
+            std::fs::remove_dir_all(&path)
+        } else {
+            std::fs::remove_file(&path)
+        };
+        match result {
+            Ok(_) => deleted.push(name.clone()),
+            Err(e) => failed.push(FailedItem { path: name.clone(), error: e.to_string() }),
+        }
+    }
+
+    Ok(DeleteResult { deleted, failed })
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// restore_from_trash
+// ────────────────────────────────────────────────────────────────────────────
+
 #[tauri::command]
 pub async fn restore_from_trash(names: Vec<String>) -> Result<Vec<String>, String> {
-    let (files_dir, info_dir) = trash_dirs().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    { restore_from_trash_linux(names) }
+    #[cfg(target_os = "macos")]
+    { restore_from_trash_macos(names) }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    { Err("restore not supported on this platform".to_string()) }
+}
+
+#[cfg(target_os = "linux")]
+fn restore_from_trash_linux(names: Vec<String>) -> Result<Vec<String>, String> {
+    let (files_dir, info_dir) = linux_trash_dirs();
     let mut restored = Vec::new();
 
     for name in &names {
@@ -168,13 +292,11 @@ pub async fn restore_from_trash(names: Vec<String>) -> Result<Vec<String>, Strin
 
         let dest = PathBuf::from(&original_path);
 
-        // Ensure parent directory exists
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Cannot create parent dir for {original_path}: {e}"))?;
         }
 
-        // Try rename first (same filesystem), fall back to copy+remove
         match std::fs::rename(&file_path, &dest) {
             Ok(_) => {}
             Err(e) if e.raw_os_error() == Some(libc::EXDEV) => {
@@ -200,7 +322,35 @@ pub async fn restore_from_trash(names: Vec<String>) -> Result<Vec<String>, Strin
     Ok(restored)
 }
 
-fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> anyhow::Result<()> {
+#[cfg(target_os = "macos")]
+fn restore_from_trash_macos(names: Vec<String>) -> Result<Vec<String>, String> {
+    // macOS keeps the original location in Finder-internal metadata, accessible
+    // via the Finder "put back" command. Shell out to osascript.
+    let mut restored = Vec::new();
+
+    for name in &names {
+        let escaped = name.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!(
+            r#"tell application "Finder" to put back (every item of trash whose name is "{}")"#,
+            escaped
+        );
+        let out = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|e| format!("osascript invocation failed: {e}"))?;
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            return Err(format!("Restore failed for {name}: {}", stderr.trim()));
+        }
+        restored.push(name.clone());
+    }
+
+    Ok(restored)
+}
+
+#[cfg(target_os = "linux")]
+fn copy_dir_all(src: &Path, dst: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;

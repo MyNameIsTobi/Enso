@@ -262,32 +262,56 @@ fn mtime_ms(meta: &std::fs::Metadata) -> i64 {
         .unwrap_or(0)
 }
 
-/// Reads /proc/mounts and returns mount points that host virtual/pseudo filesystems.
-/// These are skipped during scanning to avoid /proc, /sys, /dev, etc.
+/// Returns mount points that host virtual/pseudo filesystems we don't want to scan.
+/// Linux: parsed from /proc/mounts. macOS: hardcoded list of system volumes.
 fn read_virtual_mounts() -> std::collections::HashSet<PathBuf> {
-    const VIRTUAL_FS: &[&str] = &[
-        "proc", "sysfs", "devtmpfs", "devpts", "tmpfs", "cgroup", "cgroup2",
-        "pstore", "efivarfs", "bpf", "tracefs", "debugfs", "securityfs",
-        "hugetlbfs", "mqueue", "fusectl", "configfs", "ramfs", "nsfs",
-        "autofs", "rpc_pipefs", "nfsd", "selinuxfs",
-    ];
-
     let mut mounts = std::collections::HashSet::new();
 
-    // Always skip these even if /proc/mounts is unavailable
-    for path in ["/proc", "/sys", "/dev", "/run"] {
-        mounts.insert(PathBuf::from(path));
+    #[cfg(target_os = "linux")]
+    {
+        const VIRTUAL_FS: &[&str] = &[
+            "proc", "sysfs", "devtmpfs", "devpts", "tmpfs", "cgroup", "cgroup2",
+            "pstore", "efivarfs", "bpf", "tracefs", "debugfs", "securityfs",
+            "hugetlbfs", "mqueue", "fusectl", "configfs", "ramfs", "nsfs",
+            "autofs", "rpc_pipefs", "nfsd", "selinuxfs",
+        ];
+
+        for path in ["/proc", "/sys", "/dev", "/run"] {
+            mounts.insert(PathBuf::from(path));
+        }
+
+        if let Ok(content) = std::fs::read_to_string("/proc/mounts") {
+            for line in content.lines() {
+                let mut parts = line.splitn(4, ' ');
+                let _device    = parts.next();
+                let mountpoint = parts.next().unwrap_or("");
+                let fstype     = parts.next().unwrap_or("");
+                if VIRTUAL_FS.contains(&fstype) {
+                    mounts.insert(PathBuf::from(mountpoint));
+                }
+            }
+        }
     }
 
-    if let Ok(content) = std::fs::read_to_string("/proc/mounts") {
-        for line in content.lines() {
-            let mut parts = line.splitn(4, ' ');
-            let _device    = parts.next();
-            let mountpoint = parts.next().unwrap_or("");
-            let fstype     = parts.next().unwrap_or("");
-            if VIRTUAL_FS.contains(&fstype) {
-                mounts.insert(PathBuf::from(mountpoint));
-            }
+    #[cfg(target_os = "macos")]
+    {
+        // APFS system volumes (Big Sur+) and other pseudo/system mounts.
+        // The user-facing root '/' is a synthesized read-only view; skipping
+        // these avoids permission-denied storms and double-counted data.
+        for path in [
+            "/dev",
+            "/private/var/vm",
+            "/System/Volumes/Recovery",
+            "/System/Volumes/Preboot",
+            "/System/Volumes/VM",
+            "/System/Volumes/Hardware",
+            "/System/Volumes/iSCPreboot",
+            "/System/Volumes/xarts",
+            "/System/Volumes/Update",
+            "/Volumes/Recovery",
+            "/Volumes/Preboot",
+        ] {
+            mounts.insert(PathBuf::from(path));
         }
     }
 

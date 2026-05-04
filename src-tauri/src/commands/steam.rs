@@ -12,12 +12,22 @@ pub struct SteamGame {
     pub size: u64,      // from FileIndex if scanned, else from .acf SizeOnDisk
 }
 
+/// Default Steam install dir per platform.
+fn default_steam_root() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    #[cfg(target_os = "linux")]
+    { PathBuf::from(&home).join(".local/share/Steam") }
+    #[cfg(target_os = "macos")]
+    { PathBuf::from(&home).join("Library/Application Support/Steam") }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    { PathBuf::from(&home).join(".steam") }
+}
+
 /// Find all Steam library root directories by reading libraryfolders.vdf.
 fn steam_library_roots() -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
 
-    let home = std::env::var("HOME").unwrap_or_default();
-    let default_root = PathBuf::from(&home).join(".local/share/Steam");
+    let default_root = default_steam_root();
     if default_root.exists() {
         roots.push(default_root.clone());
     }

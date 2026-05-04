@@ -123,8 +123,14 @@ pub async fn delete_permanently(
 
 #[tauri::command]
 pub async fn open_in_file_manager(path: String) -> Result<(), String> {
-    // Use xdg-open on Linux
-    std::process::Command::new("xdg-open")
+    #[cfg(target_os = "linux")]
+    let cmd = "xdg-open";
+    #[cfg(target_os = "macos")]
+    let cmd = "open";
+    #[cfg(target_os = "windows")]
+    let cmd = "explorer";
+
+    std::process::Command::new(cmd)
         .arg(&path)
         .spawn()
         .map_err(|e| e.to_string())?;
